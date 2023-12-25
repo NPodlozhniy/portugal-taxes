@@ -52,7 +52,7 @@ class Income():
         if self.residence == "nr":
            return self.income * 0.25
         elif self.residence == "nhr":
-            return self.income * 0.20
+            return max(0, self.income - max(4104, self.social_security_tax)) * 0.20
         else:
             return self.progressive_taxation(
                 max(0, self.income - max(4104, self.social_security_tax)),
