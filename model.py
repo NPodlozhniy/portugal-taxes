@@ -3,13 +3,13 @@ import numpy as np
 
 class Thresholds(Enum):
     Mainland = [7479, 11284, 15992, 20700, 26355, 38632, 50483, 78834]
-    Madeira = [7116, 10736, 20322, 25075, 36967, 80882]
-    Azores = [7116, 10736, 20322, 25075, 36967, 80882]
+    Madeira = [7479, 11284, 15992, 20700, 26355, 38632, 50483, 78834]
+    Azores = [7479, 11284, 15992, 20700, 26355, 38632, 50483, 78834]
 
 class Rates(Enum):
     Mainland = [0.145, 0.21, 0.265, 0.285, 0.35, 0.37, 0.435, 0.45, 0.48]
-    Madeira = [0.116, 0.207, 0.265, 0.3375, 0.3587, 0.4495, 0.48]
-    Azores = [0.105, 0.1725, 0.2138, 0.28, 0.296, 0.36, 0.38]
+    Madeira = [0.1015, 0.147, 0.1855, 0.1995, 0.2975, 0.3367, 0.422, 0.4365, 0.4752]
+    Azores = [0.1015, 0.147, 0.1855, 0.1995, 0.245, 0.259, 0.3045, 0.315, 0.336]
 
 class Income():
     """
@@ -55,7 +55,7 @@ class Income():
             return self.income * 0.20
         else:
             return self.progressive_taxation(
-                self.income,
+                max(0, self.income - max(4104, self.social_security_tax)),
                 Thresholds[self.region].value,
                 Rates[self.region].value
             )
@@ -64,7 +64,7 @@ class Income():
     def solidarity_tax(self) -> float:
         thresholds = [75000, 80000, 200000, 300000]
         rates = [0, 0.40, 0.025, 0.10, 0.05]
-        return self.progressive_taxation(self.income, thresholds, rates)
+        return self.progressive_taxation(self.income, thresholds, rates) if self.residence == "r" else 0
 
     @property
     def social_security_tax(self) -> float:

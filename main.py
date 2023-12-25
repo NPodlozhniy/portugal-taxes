@@ -57,10 +57,11 @@ if __name__ == "__main__":
     sst = income.social_security_tax
     st = income.solidarity_tax
 
-    print(f"Wage:{i:30,.2f}€")
+    print(f"Wages:{i:30,.2f}€")
     print(f"\nPersonal Income Tax:{it:15,.2f}€")
     print(f"Social Security:{sst:19,.2f}€")
     if st > 0:
         print(f"Solidarity Tax:{st:20,.2f}€")
-    print(f"\nTotal Fee:{it + sst + st:25,.2f}€")
+    print(f"\nTotal Tax:{it + sst + st:25,.2f}€")
+    print(f"Effective Rate:{(it + sst + st)/i:21.2%}")
     print(f"\nMonthly Net Salary:{(i - (it + sst + st))/12:16,.2f}€")
