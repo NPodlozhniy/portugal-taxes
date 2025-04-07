@@ -96,7 +96,7 @@ class Income():
            # social security payments discount is for residents only
            return self.income * 0.25
         elif self.residence == "nhr":
-            return self.taxable_base * 0.20
+            return self.taxable_base * 0.20 * (1 - (0.3 if self.region == "Azores" else 0))
         else:
             return self.progressive_taxation(
                 self.taxable_base,
@@ -153,6 +153,6 @@ class Income():
             }
         return " ".join([
             f"<Portugal taxes for a {type[self.residence]}",
-            f"living {'on ' + self.region if self.residence == 'r' else 'anywhere'}",
+            f"living {'anywhere' if self.residence == 'nr' else 'on ' + self.region}",
             f"from {'regular employment' if self.category == 'A' else 'independent provision of services'}>"
         ])

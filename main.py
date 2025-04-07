@@ -27,9 +27,12 @@ residence_exclusive_group.add_argument(
 residence_exclusive_group.add_argument(
     "-nhr",
     "--non-habitual",
-    action="store_const",
-    const="nhr",
-    help="specify if you are a non-habitual resident",
+    action="store",
+    nargs="?",
+    const="Mainland",
+    default=None,
+    help="specify if you are a non-habitual resident and (optionaly) provide a region",
+    metavar="<region>",
 )
 residence_exclusive_group.add_argument(
     "-r",
@@ -71,16 +74,17 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
 
-    residence = args.non_resident or args.non_habitual
-    region = args.residence
     opened_at = args.independent_worker
+    expenses = args.activity_expenses
 
-    if residence:
-        income = Income(args.income, residence=residence, opened_at=opened_at, expenses=args.activity_expenses)
-    elif region:
-        income = Income(args.income, region=region, opened_at=opened_at, expenses=args.activity_expenses)
+    if args.non_resident:
+        income = Income(args.income, residence="nr", opened_at=opened_at, expenses=expenses)
+    elif args.non_habitual:
+        income = Income(args.income, residence="nhr", region=args.non_habitual, opened_at=opened_at, expenses=expenses)
+    elif args.residence:
+        income = Income(args.income, region=args.residence, opened_at=opened_at, expenses=expenses)
     else:
-        income = Income(args.income, opened_at=opened_at, expenses=args.activity_expenses)
+        income = Income(args.income, opened_at=opened_at, expenses=expenses)
 
     print(f"\n{income}\n")
 
