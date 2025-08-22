@@ -1,17 +1,9 @@
-from enum import Enum
-import numpy as np
-
 from datetime import datetime
 
-class Thresholds(Enum):
-    Mainland = [7479, 11284, 15992, 20700, 26355, 38632, 50483, 78834]
-    Madeira = [7479, 11284, 15992, 20700, 26355, 38632, 50483, 78834]
-    Azores = [7479, 11284, 15992, 20700, 26355, 38632, 50483, 78834]
+import numpy as np
 
-class Rates(Enum):
-    Mainland = [0.145, 0.21, 0.265, 0.285, 0.35, 0.37, 0.435, 0.45, 0.48]
-    Madeira = [0.1015, 0.147, 0.1855, 0.1995, 0.2975, 0.3367, 0.422, 0.4365, 0.4752]
-    Azores = [0.1015, 0.147, 0.1855, 0.1995, 0.245, 0.259, 0.3045, 0.315, 0.336]
+from config import get_tax_data
+
 
 class Income():
     """
@@ -19,6 +11,8 @@ class Income():
     
     Parameters
     ----------
+    year : int, default=2023
+        Fiscal year the taxes are calculated for
     income : float, default=None
         Annual gross income
     residence : {'r', 'nr', 'nhr'}, default='r'
@@ -32,12 +26,19 @@ class Income():
 
     def __init__(
         self,
+        year: int = 2023,
         income: float = None,
         residence: str = 'r',
         region: str = 'Mainland',
         opened_at: str = None,
-        expenses: float = None,
+        expenses: float = 0,
     ) -> None:
+        if year < 2023 or year > 2025:
+            raise ValueError(
+                "Only years from 2023 to 2025 are currently supported"
+            )
+        else:
+            self.year = year
         if income == None:
             raise ValueError(
                 "Specify the Annual gross income"
@@ -63,32 +64,47 @@ class Income():
             self.category = 'A' # regular employee
         else:
             self.category = 'B' # independent worker (TI/ENI)
+            self.activity_expenses = 0 if not expenses else float(expenses)
             try:
                 self.opened_at = datetime.strptime(opened_at, '%m/%y')
-                self.activity_expenses = 0 if not expenses else float(expenses)
             except ValueError:
                 raise ValueError(
                 "Incorrect activity opened month or expenses format, "
                 "should be a date in `mm/yy` and a float value respectively"
             )
+            if self.opened_at.year > self.year:
+                raise ValueError(
+                    "The taxes can't be estimated for the year prior to when the activity was opened. "
+                    "Consider the following years or adjust your income category"
+                )
+
+    @property
+    def specific_deduction(self) -> float:
+        tax_data = get_tax_data(self.year, self.region)
+        if self.year == 2023:
+            return 4104 # it was a fixed amount back then
+        else:
+            return 8.54 * tax_data["ias"]
 
     @property
     def taxable_base(self) -> float:
         """
         Consider only TI providing services where standard taxable base - 75%
-        For ENI supplies of goods the coeeficient is different.
+        For ENI supplies of goods the coefficient is different.
         """
         if self.category == "B":
             # first two years of atividade with discount
             extra_discount = (
-                0.5 if self.opened_at.year == 2023 else 0.25 if self.opened_at.year == 2022 else 0
+                0.5 if self.opened_at.year == self.year else 0.25 if self.opened_at.year == self.year - 1 else 0
             )
             # 15% are added as the discount of 75% reflects the costs for business
             # social security and other TI related costs are deducted, so it may be reduced to zero
-            not_incurred_expenses = max(0, self.income * 0.15 - max(4104, self.social_security_tax) - self.activity_expenses)
+            not_incurred_expenses = max(
+                0, self.income * 0.15 - max(self.specific_deduction, self.social_security_tax) - self.activity_expenses
+            )
             return self.income * 0.75 * (1 - extra_discount) + not_incurred_expenses
         else:
-            return max(0, self.income - max(4104, self.social_security_tax))
+            return max(0, self.income - max(self.specific_deduction, self.social_security_tax))
 
     @property
     def income_tax(self) -> float:
@@ -98,10 +114,11 @@ class Income():
         elif self.residence == "nhr":
             return self.taxable_base * 0.20 * (1 - (0.3 if self.region == "Azores" else 0))
         else:
+            tax_data = get_tax_data(self.year, self.region)
             return self.progressive_taxation(
                 self.taxable_base,
-                Thresholds[self.region].value,
-                Rates[self.region].value
+                tax_data["brackets"],
+                tax_data["rates"],
             )
 
     @property
@@ -113,11 +130,14 @@ class Income():
     @property
     def social_security_tax(self) -> float:
         if self.category == "B":
-            tax_year_end_at = datetime.strptime('01/24', '%m/%y')
-            months_sice_opened = tax_year_end_at.month - self.opened_at.month + 12 * (tax_year_end_at.year - self.opened_at.year)
+            tax_year_end_at = datetime.strptime(f"01/{1 + self.year % 100}", '%m/%y')
+            months_since_opened = tax_year_end_at.month - self.opened_at.month + 12 * (tax_year_end_at.year - self.opened_at.year)
             # first 12 months after opening the social security is not paid
-            invoiced_months = min(12, max(0, months_sice_opened - 12))
-            return round(self.income * (invoiced_months / 12) * 0.1125, 2)
+            # then until the beginning of the new quarter it's fixed - 20€
+            # as there is no income yet declared in a quarterly decalration
+            months_to_first_declaration = 3 - (self.opened_at.month - 1) % 3
+            invoiced_months = min(12, max(0, months_since_opened - 12 - months_to_first_declaration))
+            return round(self.income * (invoiced_months / 12) * 0.1125 + months_to_first_declaration * 20, 2)
         else:
             return round(self.income * 0.11, 2)
 
@@ -148,11 +168,12 @@ class Income():
     def __repr__(self) -> str:
         type = {
             'r': 'Resident',
-            'nr': 'Non-resident',
+            'nr': 'Non-Resident',
             'nhr': 'Non-Habitual Resident'
             }
         return " ".join([
-            f"<Portugal taxes for a {type[self.residence]}",
+            f"<Portuguese IRS for a {type[self.residence]}",
             f"living {'anywhere' if self.residence == 'nr' else 'on ' + self.region}",
-            f"from {'regular employment' if self.category == 'A' else 'independent provision of services'}>"
+            f"from {'regular employment' if self.category == 'A' else 'independent provision of services'}",
+            f"in {self.year}>"
         ])

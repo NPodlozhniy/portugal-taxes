@@ -14,6 +14,16 @@ parser.add_argument(
     type=float,
 )
 
+parser.add_argument(
+    "-y",
+    "--year",
+    action="store",
+    help="fiscal year",
+    metavar="<year>",
+    type=int,
+    default=2023,
+)
+
 residence_group = parser.add_argument_group("residence options", "what kind of a residence status you have")
 residence_exclusive_group = residence_group.add_mutually_exclusive_group(required=False)
 
@@ -23,6 +33,7 @@ residence_exclusive_group.add_argument(
     action="store_const",
     const="nr",
     help="specify if you are not a resident",
+    metavar="<region>",
 )
 residence_exclusive_group.add_argument(
     "-nhr",
@@ -56,8 +67,8 @@ category_exclusive_group.add_argument(
     "-b",
     "--independent-worker",
     action="store",
-    help="specify the month and date when activity was opened",
-    metavar="<activity opened at>",
+    help="specify the month and year when activity was opened",
+    metavar="<activity opened on mm/yy>",
 )
 
 category_group.add_argument(
@@ -74,17 +85,22 @@ args = parser.parse_args()
 
 if __name__ == "__main__":
 
-    opened_at = args.independent_worker
-    expenses = args.activity_expenses
+    kwargs = {
+        "year": args.year,
+        "income": args.income,
+        "opened_at": args.independent_worker,
+        "expenses": args.activity_expenses,
+    }
 
     if args.non_resident:
-        income = Income(args.income, residence="nr", opened_at=opened_at, expenses=expenses)
+        kwargs["residence"] = "nr"
     elif args.non_habitual:
-        income = Income(args.income, residence="nhr", region=args.non_habitual, opened_at=opened_at, expenses=expenses)
+        kwargs["residence"] = "nhr"
+        kwargs["region"] = args.non_habitual
     elif args.residence:
-        income = Income(args.income, region=args.residence, opened_at=opened_at, expenses=expenses)
-    else:
-        income = Income(args.income, opened_at=opened_at, expenses=expenses)
+        kwargs["region"] = args.residence
+
+    income = Income(**kwargs)
 
     print(f"\n{income}\n")
 
