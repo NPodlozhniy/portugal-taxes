@@ -1,5 +1,5 @@
 # portugal-taxes
-Portugal tax console calculator for 2023
+Portugal tax console calculator valid for 2023-2025  fiscal years
 
 ## :zap: Getting started
 
@@ -52,5 +52,5 @@ docker run --rm calculator -a <YOUR INCOME>
 $ python main.py -a -nr 15000
 $ python main.py -ar Madeira 50000
 $ python main.py 49506.00 --year 2024 -nhr Mainland -b 04/23 -e 344.16
-$ python main.py 82813.28 --year 2024 -nhr Mainland -b 01/24 -e 2223.16
+$ python main.py 82813.28 --year 2024 -nhr Azores -b 01/24 -e 2223.16
 ```
