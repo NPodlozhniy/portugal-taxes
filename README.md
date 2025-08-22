@@ -24,9 +24,9 @@ First of all you should install the dependencies as following
 ```
 $ pip install --no-cache-dir -r requirements.txt
 ```
-That's it, app is ready to use! By default calculator return Portugal taxes for a Resident living in Mainland
+That's it, app is ready to use! By default calculator return Portugal taxes for an employee who lives on mainland Portugal
 ```
-$ python main.py <YOUR INCOME>
+$ python main.py -a <YOUR INCOME>
 ```
 
 If you want to specify a different residence option, you can view the help
@@ -44,13 +44,13 @@ docker build -t calculator .
 ```
 And then you are all set! You can do all the things as described in the first part using `docker run --rm calculator` instead of `python main.py`
 ```
-docker run --rm calculator <YOUR INCOME>
+docker run --rm calculator -a <YOUR INCOME>
 ```
 
 ### :beers: Examples
 ```
-$ python main.py 10000 -nr
-$ python main.py 20000 -r Madeira
-$ docker run --rm calculator 30000 -nhr
-$ docker run --rm calculator 40000 -r Azores
+$ python main.py -a -nr 15000
+$ python main.py -ar Madeira 50000
+$ python main.py 49506.00 --year 2024 -nhr Mainland -b 04/23 -e 344.16
+$ python main.py 82813.28 --year 2024 -nhr Mainland -b 01/24 -e 2223.16
 ```
