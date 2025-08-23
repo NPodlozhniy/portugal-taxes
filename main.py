@@ -3,7 +3,7 @@ import argparse
 from model import Income
 
 parser = argparse.ArgumentParser(
-    description="Portugal net income calculator for 2023"
+    description="Portugal net income calculator (valid for 2023-2025)"
     )
 
 parser.add_argument(
@@ -81,6 +81,24 @@ category_group.add_argument(
     default=0,
 )
 
+status_group = parser.add_argument_group("civil status", "is it a single or a joint delacration")
+
+status_group.add_argument(
+    "-j",
+    "--joint",
+    action="store_true",
+    help="specify if you opt for joint declaration",
+)
+
+status_group.add_argument(
+    "-k",
+    "--kids",
+    action="store",
+    help="specify children's age in the end of the year",
+    metavar="<children age>",
+    type=str,
+)
+
 args = parser.parse_args()
 
 if __name__ == "__main__":
@@ -90,6 +108,8 @@ if __name__ == "__main__":
         "income": args.income,
         "opened_at": args.independent_worker,
         "expenses": args.activity_expenses,
+        "status": 'joint' if args.joint else 'single',
+        "kids": args.kids,
     }
 
     if args.non_resident:
