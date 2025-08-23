@@ -33,7 +33,7 @@ def get_tax_data(year: int, region: str) -> dict:
 
     Args:
         year (int): The tax year (e.g., 2023, 2024, 2025).
-        region (Region): The geographical region (e.g., Region.MAINLAND).
+        region (Region): The geographical region (e.g., 'Madeira').
 
     Returns:
         dict: A dictionary containing the tax brackets, rates, and IAS value.

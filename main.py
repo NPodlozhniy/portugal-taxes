@@ -3,7 +3,7 @@ import argparse
 from model import Income
 
 parser = argparse.ArgumentParser(
-    description="Portugal net income calculator for 2023"
+    description="Portugal net income calculator (valid for 2023-2025)"
     )
 
 parser.add_argument(
