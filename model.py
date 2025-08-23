@@ -32,6 +32,9 @@ class Income():
         region: str = 'Mainland',
         opened_at: str = None,
         expenses: float = 0,
+        # add joint declaration & children
+        status: str = 'single',
+        kids: str = None,
     ) -> None:
         if year < 2023 or year > 2025:
             raise ValueError(
@@ -78,6 +81,23 @@ class Income():
                     "Consider the following years or adjust your income category"
                 )
 
+        if status not in {'single', 'joint'}:
+            raise ValueError(
+                "Incorrect submit status, "
+                "should be either `single` or `joint`"
+            )
+        else:
+            self.status = status
+        if kids:
+            try:
+                self.ages = [int(age.strip()) for age in kids.split(',')]
+            except ValueError:
+                raise ValueError(
+                "Incorrect format of children ages provided, "
+                "should be integer numbers for the end of the year separated by a comma without spaces. "
+                "Example: '3,10,1'"
+            )
+
     @property
     def specific_deduction(self) -> float:
         tax_data = get_tax_data(self.year, self.region)
@@ -107,6 +127,43 @@ class Income():
             return max(0, self.income - max(self.specific_deduction, self.social_security_tax))
 
     @property
+    def family_quotient(self) -> float:
+        quote = 1
+        if self.status == 'single':
+            return quote
+        else:
+            # joint declaration
+            quote += 1
+        # and extra for kids
+        if hasattr(self, "ages"):
+            # 0.5 for the first
+            quote += 0.25
+            for age in self.ages:
+                # 0.25 for others
+                quote += 0.25
+        return quote
+
+    @property
+    def family_deduction(self) -> float:
+        if not hasattr(self, "ages"):
+            return 0
+        # every dependent adds 600 euros
+        expenses = 600 * len(self.ages)
+        # every children under 3 get extra 126 euros
+        for age in self.ages:
+            if age <= 3:
+                expenses += 126
+        # the second and subsequent children under 6 get extra 300 euros
+        for age in sorted(self.ages)[1:]:
+            if age <= 6:
+                expenses += 300
+        # if a family submit separate declarations
+        # choldren deducations are divided equally
+        if self.status == 'single':
+            expenses /= 2
+        return expenses
+
+    @property
     def income_tax(self) -> float:
         if self.residence == "nr":
            # social security payments discount is for residents only
@@ -115,11 +172,11 @@ class Income():
             return self.taxable_base * 0.20 * (1 - (0.3 if self.region == "Azores" else 0))
         else:
             tax_data = get_tax_data(self.year, self.region)
-            return self.progressive_taxation(
-                self.taxable_base,
+            return self.family_quotient * self.progressive_taxation(
+                self.taxable_base / self.family_quotient,
                 tax_data["brackets"],
                 tax_data["rates"],
-            )
+            ) - self.family_deduction
 
     @property
     def solidarity_tax(self) -> float:
