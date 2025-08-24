@@ -54,3 +54,11 @@ $ python main.py -ar Madeira 50000
 $ python main.py 49506.00 --year 2024 -nhr Mainland -b 04/23 -e 344.16
 $ python main.py 82813.28 --year 2024 -nhr Azores -b 01/24 -e 2223.16
 ```
+
+### WebApp [in-progress]
+You can also use the web version of the calculator (it;s not deployed yet though) the commands for local run are and then go to localhost on http://127.0.0.1:5000
+```
+$ rm instance/taxes.db
+$ python -c "from app import db, app; app.app_context().push(); db.create_all()"
+$ python app.py
+```

@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+  <h2>Profile</h2>
+    <form method="post">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label for="residence" class="form-label">Residence Status</label>
+          <select class="form-select" id="residence" name="residence" onchange="toggleRegion()">
+            <option value="r" {% if current_user.residence == 'r' %}selected{% endif %}>Resident</option>
+            <option value="nr" {% if current_user.residence == 'nr' %}selected{% endif %}>Non-Resident</option>
+            <option value="nhr" {% if current_user.residence == 'nhr' %}selected{% endif %}>Non-Habitual Resident</option>
+          </select>
+        </div>
+        <div class="col-md-6" id="region-group">
+          <label for="region" class="form-label">Region</label>
+          <select class="form-select" id="region" name="region">
+            <option value="Mainland" {% if current_user.region == 'Mainland' %}selected{% endif %}>Mainland</option>
+            <option value="Madeira" {% if current_user.region == 'Madeira' %}selected{% endif %}>Madeira</option>
+            <option value="Azores" {% if current_user.region == 'Azores' %}selected{% endif %}>Azores</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label for="category" class="form-label">Income Category</label>
+          <select class="form-select" id="category" name="category" onchange="toggleActivityOpened()">
+            <option value="A" {% if current_user.category == 'A' %}selected{% endif %}>Regular Employee (A)</option>
+            <option value="B" {% if current_user.category == 'B' %}selected{% endif %}>Independent Worker (B)</option>
+          </select>
+        </div>
+        <div class="col-md-6" id="activity-opened-group" style="display: none;">
+          <label for="activity_opened" class="form-label">Activity Opened (Month/Year)
+            <span class="text-muted small">e.g. March 2024</span>
+          </label>
+          <div class="row g-2">
+            <div class="col-6">
+              <select class="form-select" id="activity_opened_month" name="activity_opened_month">
+                {% for m in range(1,13) %}
+                <option value="{{'%02d' % m}}" {% if current_user.activity_opened and current_user.activity_opened.split('/')|first == '%02d' % m %}selected{% endif %}>{{['January','February','March','April','May','June','July','August','September','October','November','December'][m-1]}}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-6">
+              <select class="form-select" id="activity_opened_year" name="activity_opened_year">
+                {% for y in range(2020, 2026) %}
+                <option value="{{y % 100}}" {% if current_user.activity_opened and current_user.activity_opened.split('/')|length > 1 and current_user.activity_opened.split('/')|last == (y % 100)|string %}selected{% endif %}>{{y}}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label for="kids" class="form-label">Children Ages (comma separated)
+            <span class="text-muted small">e.g. 3,10,1</span>
+          </label>
+          <input type="text" class="form-control" id="kids" name="kids" value="{{ current_user.kids }}" placeholder="3,10,1">
+        </div>
+      </div>
+      <div class="mt-4">
+        <button type="submit" class="btn btn-primary">Save Profile</button>
+        <a href="{{ url_for('logout') }}" class="btn btn-outline-primary">Logout</a>
+      </div>
+      <script>
+        function getActivityOpenedValue() {
+          var m = document.getElementById('activity_opened_month').value;
+          var y = document.getElementById('activity_opened_year').value;
+          return m + '/' + y;
+        }
+        document.querySelector('form').addEventListener('submit', function(e) {
+          var cat = document.getElementById('category').value;
+          if (cat === 'B') {
+            var ao = getActivityOpenedValue();
+            var hidden = document.getElementById('activity_opened_hidden');
+            if (!hidden) {
+              hidden = document.createElement('input');
+              hidden.type = 'hidden';
+              hidden.name = 'activity_opened';
+              hidden.id = 'activity_opened_hidden';
+              this.appendChild(hidden);
+            }
+            hidden.value = ao;
+          }
+        });
+      </script>
+      <script>
+        function toggleRegion() {
+          var residence = document.getElementById('residence').value;
+          var regionGroup = document.getElementById('region-group');
+          if (residence === 'r' || residence === 'nhr') {
+            regionGroup.style.display = '';
+          } else {
+            regionGroup.style.display = 'none';
+          }
+        }
+        function toggleActivityOpened() {
+          var category = document.getElementById('category').value;
+          var activityGroup = document.getElementById('activity-opened-group');
+          if (category === 'B') {
+            activityGroup.style.display = '';
+          } else {
+            activityGroup.style.display = 'none';
+          }
+        }
+        document.addEventListener('DOMContentLoaded', function() {
+          toggleRegion();
+          toggleActivityOpened();
+        });
+        document.getElementById('residence').addEventListener('change', toggleRegion);
+        document.getElementById('category').addEventListener('change', toggleActivityOpened);
+      </script>
+    </form>
+  </div>
+</div>
+{% endblock %}

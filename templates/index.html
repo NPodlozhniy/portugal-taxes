@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block content %}
+<form method="post" class="row g-3">
+  <div class="col-md-6">
+    <label for="income" class="form-label">Gross Annual Income (€)
+      <span class="text-muted small">e.g. 35,000</span>
+    </label>
+    <input type="text" inputmode="decimal" class="form-control" id="income" name="income" required value="{{ request.form.income or '' }}" placeholder="35,000" oninput="this.value=this.value.replace(/[^\d.,]/g,'').replace(/(,)(?=.*\1)/g,'');formatNumber(this)">
+  </div>
+  <div class="col-md-6">
+    <label for="year" class="form-label">Fiscal Year</label>
+  <input type="number" class="form-control" id="year" name="year" min="2023" max="2025" value="{{ request.form.year or current_year }}">
+  </div>
+  {% if profile.category == 'B' %}
+  <div class="col-md-6">
+    <label for="expenses" class="form-label">Activity Expenses (€)
+      <span class="text-muted small">e.g. 1,200</span>
+    </label>
+    <input type="text" inputmode="decimal" class="form-control" id="expenses" name="expenses" value="{{ request.form.expenses or 0 }}" placeholder="1,200" oninput="this.value=this.value.replace(/[^\d.,]/g,'').replace(/(,)(?=.*\1)/g,'');formatNumber(this)">
+  </div>
+  {% endif %}
+  <div class="col-md-6">
+    <label for="status" class="form-label">Declaration Option</label>
+    <select class="form-select" id="status" name="status">
+      <option value="single" {% if request.form.status == 'single' %}selected{% endif %}>Single</option>
+      <option value="joint" {% if request.form.status == 'joint' %}selected{% endif %}>Joint</option>
+    </select>
+  </div>
+  <div class="col-12">
+  <button type="submit" class="btn" style="background-color:#7c3aed;color:#fff;">Calculate</button>
+  <a href="{{ url_for('profile') }}" class="btn btn-outline-primary" style="border-color:#7c3aed;color:#7c3aed;">Edit Profile</a>
+<script>
+function formatNumber(input) {
+  let val = input.value.replace(/,/g, '');
+  if (!isNaN(val) && val.length > 0) {
+    input.value = Number(val).toLocaleString('en-US');
+  }
+}
+</script>
+  </div>
+</form>
+{% if result %}
+  <div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+      <div class="card shadow">
+        <div class="card-header bg-primary text-white">
+          <h4 class="mb-0">Calculation Result</h4>
+        </div>
+        <div class="card-body">
+          <h5 class="card-title">{{ result.desc.replace('<','').replace('>','') }}</h5>
+          <div class="row mb-3">
+            <div class="col">
+              <span class="badge bg-secondary">{{ result.status|capitalize }} Declaration</span>
+              {% if result.kids %}<span class="badge bg-info">Kids: {{ result.kids }}</span>{% endif %}
+              {% if result.opened_at %}<span class="badge bg-warning text-dark">Activity Opened: {{ result.opened_at }}</span>{% endif %}
+              {% if result.expenses %}<span class="badge bg-success">Expenses: {{ '{:,.2f}'.format(result.expenses) }} €</span>{% endif %}
+            </div>
+          </div>
+          <table class="table table-bordered mt-3">
+            <tbody>
+              <tr><th>Gross Wages</th><td>{{ '{:,.2f}'.format(result.wages) }} €</td></tr>
+              <tr><th>Personal Income Tax (IRS)</th><td>{{ '{:,.2f}'.format(result.income_tax) }} €</td></tr>
+              <tr><th>Social Security</th><td>{{ '{:,.2f}'.format(result.social_security) }} €</td></tr>
+              {% if result.solidarity_tax > 0 %}
+              <tr><th>Solidarity Tax</th><td>{{ '{:,.2f}'.format(result.solidarity_tax) }} €</td></tr>
+              {% endif %}
+              <tr class="table-info"><th>Total Tax</th><td><b>{{ '{:,.2f}'.format(result.total_tax) }} €</b></td></tr>
+              <tr><th>Effective Rate</th><td>{{ (result.effective_rate * 100) | round(2) }} %</td></tr>
+              <tr class="table-success"><th>Monthly Net Salary</th><td><b>{{ '{:,.2f}'.format(result.monthly_net) }} €</b></td></tr>
+            </tbody>
+          </table>
+          {% if result.alternatives and result.alternatives|length > 0 %}
+          <div class="mt-4">
+            <h5>Alternative Scenarios</h5>
+            <table class="table table-sm table-hover">
+              <thead>
+                <tr>
+                  <th>Scenario</th>
+                  <th>Total Tax</th>
+                  <th>Monthly Net</th>
+                  <th>Potential Gain</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for alt in result.alternatives %}
+                <tr>
+                  <td>{{ alt.desc }}</td>
+                  <td>{{ '{:,.2f}'.format(alt.total_tax) }} €</td>
+                  <td>{{ '{:,.2f}'.format(alt.monthly_net) }} €</td>
+                  <td>{% if alt.gain > 0 %}<span class="text-success">+{{ '{:,.2f}'.format(alt.gain) }} €</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+{% if recent_calcs and recent_calcs|length > 0 %}
+  <div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header bg-light">
+          <h5 class="mb-0">Recent Calculations</h5>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Year</th>
+                <th>Income</th>
+                <th>Status</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for calc in recent_calcs %}
+              <tr>
+                <td>{{ calc.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td>{{ calc.year }}</td>
+                <td>{{ '{:,.2f}'.format(calc.income) }} €</td>
+                <td>{{ calc.status|capitalize }}</td>
+                <td><a href="?load={{ calc.id }}" class="btn btn-outline-primary btn-sm">Load</a></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endif %}
+{% if error %}
+  <div class="alert alert-danger mt-4" role="alert">
+    {{ error }}
+  </div>
+{% endif %}
+{% endblock %}
