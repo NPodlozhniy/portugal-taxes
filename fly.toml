@@ -8,9 +8,6 @@ primary_region = 'fra'
 
 [build]
 
-[deploy]
-  release_command = "python migrate.py"
-
 [http_service]
   internal_port = 5000
   force_https = true
@@ -20,7 +17,6 @@ primary_region = 'fra'
   processes = ['app']
 
 [[vm]]
-  memory = '1gb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 1024
