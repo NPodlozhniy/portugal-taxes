@@ -57,9 +57,6 @@ class Calculation(db.Model):
   status = db.Column(db.String(10))
   result_json = db.Column(db.Text)  # Store result as JSON string
 
-with app.app_context():
-    db.create_all()
-
 @login_manager.user_loader
 def load_user(user_id):
   return db.session.get(User, int(user_id))

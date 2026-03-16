@@ -8,6 +8,9 @@ primary_region = 'fra'
 
 [build]
 
+[deploy]
+  release_command = "python -c 'from app import app, db; app.app_context().push(); db.create_all()'"
+
 [http_service]
   internal_port = 5000
   force_https = true

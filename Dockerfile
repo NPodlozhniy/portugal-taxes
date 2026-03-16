@@ -13,5 +13,4 @@ RUN mkdir -p instance
 
 EXPOSE 5000
 
-ENTRYPOINT ["gunicorn"]
-CMD ["--bind", "0.0.0.0:5000", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]
