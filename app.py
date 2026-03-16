@@ -10,7 +10,7 @@ import datetime
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'devsecret')
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///taxes.db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///taxes.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 login_manager = LoginManager(app)
@@ -52,15 +52,12 @@ class Calculation(db.Model):
   status = db.Column(db.String(10))
   result_json = db.Column(db.Text)  # Store result as JSON string
 
-  def set_password(self, password):
-    self.password_hash = generate_password_hash(password)
-
-  def check_password(self, password):
-    return check_password_hash(self.password_hash, password)
+with app.app_context():
+    db.create_all()
 
 @login_manager.user_loader
 def load_user(user_id):
-  return User.query.get(int(user_id))
+  return db.session.get(User, int(user_id))
 
 # Registration route
 @app.route('/register', methods=['GET', 'POST'])
@@ -113,7 +110,15 @@ def profile():
       current_user.region = 'Mainland'
     current_user.category = request.form.get('category', 'A')
     current_user.kids = request.form.get('kids', '')
-    current_user.activity_opened = request.form.get('activity_opened', '') if current_user.category == 'B' else ''
+    if current_user.category == 'B':
+      ao = request.form.get('activity_opened', '')
+      if not ao:
+        month = request.form.get('activity_opened_month', '01')
+        year_short = request.form.get('activity_opened_year', '23')
+        ao = f"{month}/{year_short}"
+      current_user.activity_opened = ao
+    else:
+      current_user.activity_opened = ''
     db.session.commit()
     flash('Profile updated. You can now calculate your taxes!', 'success')
     return redirect(url_for('index'))
@@ -232,7 +237,7 @@ def index():
 
   if request.method == 'POST':
     try:
-      year = int(request.form.get('year', 2023))
+      year = int(request.form.get('year', 2025))
       income_str = request.form['income'].replace(',', '')
       income = float(income_str)
       # Use profile dimensions
@@ -241,8 +246,8 @@ def index():
       category = profile.category
       kids = profile.kids or None
       opened_at = profile.activity_opened if category == 'B' else None
-      expenses_str = request.form.get('expenses', '0').replace(',', '') if category == 'B' else '0'
-      expenses = float(expenses_str) if category == 'B' else 0
+      expenses_str = request.form.get('expenses', '').strip().replace(',', '') if category == 'B' else '0'
+      expenses = float(expenses_str) if expenses_str else 0
       status = request.form.get('status', 'single')
 
       kwargs = {
@@ -353,4 +358,4 @@ def index():
   return render_template('index.html', result=result, error=error, profile=profile, recent_calcs=recent_calcs, current_year=current_year)
 
 if __name__ == '__main__':
-  app.run(debug=True, host='0.0.0.0')
+  app.run(debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true', host='0.0.0.0')

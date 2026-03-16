@@ -1,142 +1,250 @@
 {% extends 'base.html' %}
 {% block content %}
-<form method="post" class="row g-3">
-  <div class="col-md-6">
-    <label for="income" class="form-label">Gross Annual Income (€)
-      <span class="text-muted small">e.g. 35,000</span>
-    </label>
-    <input type="text" inputmode="decimal" class="form-control" id="income" name="income" required value="{{ request.form.income or '' }}" placeholder="35,000" oninput="this.value=this.value.replace(/[^\d.,]/g,'').replace(/(,)(?=.*\1)/g,'');formatNumber(this)">
-  </div>
-  <div class="col-md-6">
-    <label for="year" class="form-label">Fiscal Year</label>
-  <input type="number" class="form-control" id="year" name="year" min="2023" max="2025" value="{{ request.form.year or current_year }}">
-  </div>
-  {% if profile.category == 'B' %}
-  <div class="col-md-6">
-    <label for="expenses" class="form-label">Activity Expenses (€)
-      <span class="text-muted small">e.g. 1,200</span>
-    </label>
-    <input type="text" inputmode="decimal" class="form-control" id="expenses" name="expenses" value="{{ request.form.expenses or 0 }}" placeholder="1,200" oninput="this.value=this.value.replace(/[^\d.,]/g,'').replace(/(,)(?=.*\1)/g,'');formatNumber(this)">
-  </div>
+
+{# Profile summary chips #}
+<div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+  <span class="text-muted small fw-semibold me-1">Your profile:</span>
+  <span class="badge rounded-pill bg-secondary">
+    {% if profile.residence == 'r' %}Resident
+    {% elif profile.residence == 'nr' %}Non-Resident
+    {% else %}NHR{% endif %}
+  </span>
+  {% if profile.residence != 'nr' %}
+  <span class="badge rounded-pill bg-secondary">{{ profile.region }}</span>
   {% endif %}
-  <div class="col-md-6">
-    <label for="status" class="form-label">Declaration Option</label>
-    <select class="form-select" id="status" name="status">
-      <option value="single" {% if request.form.status == 'single' %}selected{% endif %}>Single</option>
-      <option value="joint" {% if request.form.status == 'joint' %}selected{% endif %}>Joint</option>
-    </select>
-  </div>
-  <div class="col-12">
-  <button type="submit" class="btn" style="background-color:#7c3aed;color:#fff;">Calculate</button>
-  <a href="{{ url_for('profile') }}" class="btn btn-outline-primary" style="border-color:#7c3aed;color:#7c3aed;">Edit Profile</a>
-<script>
-function formatNumber(input) {
-  let val = input.value.replace(/,/g, '');
-  if (!isNaN(val) && val.length > 0) {
-    input.value = Number(val).toLocaleString('en-US');
-  }
-}
-</script>
-  </div>
-</form>
-{% if result %}
-  <div class="row justify-content-center mt-4">
-    <div class="col-md-8">
-      <div class="card shadow">
-        <div class="card-header bg-primary text-white">
-          <h4 class="mb-0">Calculation Result</h4>
-        </div>
-        <div class="card-body">
-          <h5 class="card-title">{{ result.desc.replace('<','').replace('>','') }}</h5>
-          <div class="row mb-3">
-            <div class="col">
-              <span class="badge bg-secondary">{{ result.status|capitalize }} Declaration</span>
-              {% if result.kids %}<span class="badge bg-info">Kids: {{ result.kids }}</span>{% endif %}
-              {% if result.opened_at %}<span class="badge bg-warning text-dark">Activity Opened: {{ result.opened_at }}</span>{% endif %}
-              {% if result.expenses %}<span class="badge bg-success">Expenses: {{ '{:,.2f}'.format(result.expenses) }} €</span>{% endif %}
-            </div>
+  <span class="badge rounded-pill bg-secondary">Category {{ profile.category }}</span>
+  {% if profile.kids %}<span class="badge rounded-pill bg-secondary">Kids: {{ profile.kids }}</span>{% endif %}
+  <a href="{{ url_for('profile') }}" class="small text-brand ms-1"><i class="bi bi-pencil"></i> Edit</a>
+</div>
+
+<div class="row g-4">
+  {# ── LEFT: Calculator form ── #}
+  <div class="col-md-4">
+    <div class="card shadow-sm">
+      <div class="card-header card-header-brand py-3">
+        <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Calculate Taxes</h5>
+      </div>
+      <div class="card-body p-4">
+        <form method="post">
+          <div class="mb-3">
+            <label for="income" class="form-label fw-semibold">Gross Annual Income (€)</label>
+            <input type="text" inputmode="decimal" class="form-control form-control-lg"
+              id="income" name="income" required
+              value="{{ request.form.income or '' }}" placeholder="45,000">
           </div>
-          <table class="table table-bordered mt-3">
-            <tbody>
-              <tr><th>Gross Wages</th><td>{{ '{:,.2f}'.format(result.wages) }} €</td></tr>
-              <tr><th>Personal Income Tax (IRS)</th><td>{{ '{:,.2f}'.format(result.income_tax) }} €</td></tr>
-              <tr><th>Social Security</th><td>{{ '{:,.2f}'.format(result.social_security) }} €</td></tr>
-              {% if result.solidarity_tax > 0 %}
-              <tr><th>Solidarity Tax</th><td>{{ '{:,.2f}'.format(result.solidarity_tax) }} €</td></tr>
-              {% endif %}
-              <tr class="table-info"><th>Total Tax</th><td><b>{{ '{:,.2f}'.format(result.total_tax) }} €</b></td></tr>
-              <tr><th>Effective Rate</th><td>{{ (result.effective_rate * 100) | round(2) }} %</td></tr>
-              <tr class="table-success"><th>Monthly Net Salary</th><td><b>{{ '{:,.2f}'.format(result.monthly_net) }} €</b></td></tr>
-            </tbody>
-          </table>
-          {% if result.alternatives and result.alternatives|length > 0 %}
-          <div class="mt-4">
-            <h5>Alternative Scenarios</h5>
-            <table class="table table-sm table-hover">
-              <thead>
-                <tr>
-                  <th>Scenario</th>
-                  <th>Total Tax</th>
-                  <th>Monthly Net</th>
-                  <th>Potential Gain</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for alt in result.alternatives %}
-                <tr>
-                  <td>{{ alt.desc }}</td>
-                  <td>{{ '{:,.2f}'.format(alt.total_tax) }} €</td>
-                  <td>{{ '{:,.2f}'.format(alt.monthly_net) }} €</td>
-                  <td>{% if alt.gain > 0 %}<span class="text-success">+{{ '{:,.2f}'.format(alt.gain) }} €</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
-                </tr>
-                {% endfor %}
-              </tbody>
-            </table>
+          <div class="mb-3">
+            <label for="year" class="form-label fw-semibold">Fiscal Year</label>
+            <select class="form-select" id="year" name="year">
+              {% for y in [2023, 2024, 2025] %}
+              <option value="{{ y }}" {% if request.form.get('year', '2025') == y|string %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% if profile.category == 'B' %}
+          <div class="mb-3">
+            <label for="expenses" class="form-label fw-semibold">Activity Expenses (€)</label>
+            <input type="text" inputmode="decimal" class="form-control"
+              id="expenses" name="expenses"
+              value="{{ request.form.expenses or '' }}" placeholder="1,200">
           </div>
           {% endif %}
-        </div>
+          <div class="mb-4">
+            <label for="status" class="form-label fw-semibold">Declaration</label>
+            <select class="form-select" id="status" name="status">
+              <option value="single" {% if request.form.get('status', 'single') == 'single' %}selected{% endif %}>Single</option>
+              <option value="joint" {% if request.form.get('status') == 'joint' %}selected{% endif %}>Joint (with spouse)</option>
+            </select>
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-brand btn-lg">
+              <i class="bi bi-calculator me-1"></i> Calculate
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
-{% endif %}
-{% if recent_calcs and recent_calcs|length > 0 %}
-  <div class="row justify-content-center mt-4">
-    <div class="col-md-8">
-      <div class="card">
-        <div class="card-header bg-light">
-          <h5 class="mb-0">Recent Calculations</h5>
+
+  {# ── RIGHT: Results ── #}
+  <div class="col-md-8">
+    {% if error %}
+    <div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>{{ error }}</div>
+    {% endif %}
+
+    {% if result %}
+    {# Summary tiles #}
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-lg-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+          <div class="card-body py-3">
+            <div class="text-muted small mb-1">Gross Income</div>
+            <div class="fw-bold fs-5">{{ '{:,.0f}'.format(result.wages) }}€</div>
+          </div>
         </div>
-        <div class="card-body p-0">
-          <table class="table table-sm mb-0">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Year</th>
-                <th>Income</th>
-                <th>Status</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for calc in recent_calcs %}
-              <tr>
-                <td>{{ calc.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
-                <td>{{ calc.year }}</td>
-                <td>{{ '{:,.2f}'.format(calc.income) }} €</td>
-                <td>{{ calc.status|capitalize }}</td>
-                <td><a href="?load={{ calc.id }}" class="btn btn-outline-primary btn-sm">Load</a></td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="card text-center border-0 shadow-sm h-100" style="background:#fff5f5">
+          <div class="card-body py-3">
+            <div class="text-muted small mb-1">Total Tax</div>
+            <div class="fw-bold fs-5 text-danger">{{ '{:,.0f}'.format(result.total_tax) }}€</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="card text-center border-0 shadow-sm h-100" style="background:#f0faf4">
+          <div class="card-body py-3">
+            <div class="text-muted small mb-1">Monthly Net</div>
+            <div class="fw-bold fs-5 text-success">{{ '{:,.0f}'.format(result.monthly_net) }}€</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-lg-3">
+        <div class="card text-center border-0 shadow-sm h-100">
+          <div class="card-body py-3">
+            <div class="text-muted small mb-1">Effective Rate</div>
+            <div class="fw-bold fs-5">{{ (result.effective_rate * 100)|round(1) }}%</div>
+          </div>
         </div>
       </div>
     </div>
+
+    {# Tax breakdown card #}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="bi bi-bar-chart me-2 text-brand"></i>Tax Breakdown</h5>
+        <small class="text-muted">{{ result.desc.replace('<','').replace('>','') }}</small>
+      </div>
+      <div class="card-body p-4">
+        {% set pct_irs = (result.income_tax / result.wages * 100)|round(1) %}
+        {% set pct_ss  = (result.social_security / result.wages * 100)|round(1) %}
+        {% set pct_sol = (result.solidarity_tax / result.wages * 100)|round(1) %}
+        {% set pct_net = (100 - pct_irs - pct_ss - pct_sol)|round(1) %}
+        <div class="progress mb-4" style="height:26px; border-radius:6px;">
+          <div class="progress-bar bg-danger" style="width:{{ pct_irs }}%" title="IRS: {{ pct_irs }}%">
+            {% if pct_irs > 7 %}IRS {{ pct_irs }}%{% endif %}
+          </div>
+          <div class="progress-bar bg-warning text-dark" style="width:{{ pct_ss }}%" title="SS: {{ pct_ss }}%">
+            {% if pct_ss > 5 %}SS {{ pct_ss }}%{% endif %}
+          </div>
+          {% if pct_sol > 0 %}
+          <div class="progress-bar" style="background:#b91c1c;width:{{ pct_sol }}%" title="Solidarity: {{ pct_sol }}%"></div>
+          {% endif %}
+          <div class="progress-bar bg-success" style="width:{{ pct_net }}%">
+            {% if pct_net > 8 %}Net {{ pct_net }}%{% endif %}
+          </div>
+        </div>
+        <table class="table table-sm mb-0">
+          <tbody>
+            <tr>
+              <td class="text-muted">Personal Income Tax (IRS)</td>
+              <td class="text-end fw-semibold">{{ '{:,.2f}'.format(result.income_tax) }} €</td>
+            </tr>
+            <tr>
+              <td class="text-muted">Social Security</td>
+              <td class="text-end fw-semibold">{{ '{:,.2f}'.format(result.social_security) }} €</td>
+            </tr>
+            {% if result.solidarity_tax > 0 %}
+            <tr>
+              <td class="text-muted">Solidarity Tax</td>
+              <td class="text-end fw-semibold">{{ '{:,.2f}'.format(result.solidarity_tax) }} €</td>
+            </tr>
+            {% endif %}
+            <tr class="table-light">
+              <td class="fw-bold">Total Tax</td>
+              <td class="text-end fw-bold text-danger">{{ '{:,.2f}'.format(result.total_tax) }} €</td>
+            </tr>
+            <tr style="background:#f0faf4">
+              <td class="fw-bold">Monthly Net Salary</td>
+              <td class="text-end fw-bold text-success">{{ '{:,.2f}'.format(result.monthly_net) }} €</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# Alternative scenarios #}
+    {% if result.alternatives and result.alternatives|length > 0 %}
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-white py-3">
+        <h5 class="mb-0"><i class="bi bi-arrow-left-right me-2 text-brand"></i>Alternative Scenarios</h5>
+      </div>
+      <div class="card-body p-3">
+        <div class="row g-3">
+          {% for alt in result.alternatives %}
+          <div class="col-sm-6 col-lg-4">
+            <div class="border rounded p-3 h-100 {% if alt.gain > 0 %}border-success{% endif %}">
+              <div class="fw-semibold small mb-2">{{ alt.desc }}</div>
+              <div class="text-muted small">Total Tax</div>
+              <div class="fw-bold">{{ '{:,.0f}'.format(alt.total_tax) }}€</div>
+              <div class="text-muted small mt-1">Monthly Net</div>
+              <div class="fw-bold">{{ '{:,.0f}'.format(alt.monthly_net) }}€</div>
+              {% if alt.gain > 0 %}
+              <div class="mt-2 text-success small fw-semibold">
+                <i class="bi bi-arrow-down-circle"></i> Save {{ '{:,.0f}'.format(alt.gain) }}€/year
+              </div>
+              {% else %}
+              <div class="mt-2 text-muted small">No advantage vs current</div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% else %}
+    {# Empty state #}
+    <div class="card shadow-sm">
+      <div class="card-body p-5 text-center text-muted">
+        <i class="bi bi-calculator display-3 d-block mb-3 text-brand" style="opacity:.4"></i>
+        <p class="mb-0">Enter your gross income and click <strong>Calculate</strong> to see your full tax breakdown.</p>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Recent calculations #}
+    {% if recent_calcs and recent_calcs|length > 0 %}
+    <div class="card shadow-sm mt-4">
+      <div class="card-header bg-white py-2">
+        <h6 class="mb-0 text-muted"><i class="bi bi-clock-history me-2"></i>Recent Calculations</h6>
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Date</th><th>Year</th><th>Income</th><th>Status</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for calc in recent_calcs %}
+            <tr>
+              <td class="text-muted small">{{ calc.timestamp.strftime('%d %b %Y') }}</td>
+              <td>{{ calc.year }}</td>
+              <td>{{ '{:,.0f}'.format(calc.income) }}€</td>
+              <td>{{ calc.status|capitalize }}</td>
+              <td><a href="?load={{ calc.id }}" class="btn btn-outline-secondary btn-sm">Load</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
   </div>
+</div>
+
+<script>
+function fmtNumber(el) {
+  let raw = el.value.replace(/,/g, '');
+  let parts = raw.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  el.value = parts.slice(0, 2).join(parts.length > 1 ? '.' : '');
+}
+document.getElementById('income').addEventListener('input', function() { fmtNumber(this); });
+{% if profile.category == 'B' %}
+var expEl = document.getElementById('expenses');
+if (expEl) expEl.addEventListener('input', function() { fmtNumber(this); });
 {% endif %}
-{% if error %}
-  <div class="alert alert-danger mt-4" role="alert">
-    {{ error }}
-  </div>
-{% endif %}
+</script>
 {% endblock %}

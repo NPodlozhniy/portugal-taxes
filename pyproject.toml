@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--tb=short -q"
+
+[tool.coverage.run]
+source = ["model", "app", "config"]
+omit = ["tests/*", "main.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false

@@ -1,12 +1,6 @@
 # Byte-compiled
 __pycache__/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# IPython
-profile_default/
-ipython_config.py
+*.pyc
 
 # Environments
 .env
@@ -14,6 +8,28 @@ ipython_config.py
 env/
 venv/
 
-# Git Files
-LICENSE
+# Dev / test artefacts
+tests/
+requirements-dev.txt
+.pytest_cache/
+.coverage
+htmlcov/
+pyproject.toml
+
+# IDE
+.idea/
+.vscode/
+
+# Git / CI
+.git/
+.github/
 .gitignore
+
+# Docs / meta
+LICENSE
+README.md
+CLAUDE.md
+*.md
+
+# DB (created at runtime)
+instance/

@@ -1,20 +1,30 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="row justify-content-center">
-  <div class="col-md-6">
-    <h2>Register</h2>
-    <form method="post">
-      <div class="mb-3">
-        <label for="email" class="form-label">Email address <span class="text-muted small">e.g. user@example.com</span></label>
-        <input type="email" class="form-control" id="email" name="email" required placeholder="user@example.com">
+  <div class="col-md-4 col-sm-8">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h3 class="card-title mb-1 text-brand">Create Account</h3>
+        <p class="text-muted small mb-4">Set up your tax profile once, calculate instantly every time.</p>
+        <form method="post">
+          <div class="mb-3">
+            <label for="email" class="form-label fw-semibold">Email</label>
+            <input type="email" class="form-control" id="email" name="email" required autofocus placeholder="you@example.com">
+          </div>
+          <div class="mb-4">
+            <label for="password" class="form-label fw-semibold">Password</label>
+            <input type="password" class="form-control" id="password" name="password" required placeholder="At least 8 characters" minlength="8">
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-brand">Create Account</button>
+          </div>
+        </form>
       </div>
-      <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <input type="password" class="form-control" id="password" name="password" required placeholder="At least 8 characters">
+      <div class="card-footer text-center bg-transparent py-3">
+        <span class="text-muted small">Already have an account? </span>
+        <a href="{{ url_for('login') }}" class="small text-brand fw-semibold">Sign in</a>
       </div>
-      <button type="submit" class="btn btn-primary">Register</button>
-      <a href="{{ url_for('login') }}" class="btn btn-outline-secondary">Already have an account?</a>
-    </form>
+    </div>
   </div>
 </div>
 {% endblock %}
