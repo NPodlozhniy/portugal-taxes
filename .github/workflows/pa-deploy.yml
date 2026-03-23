@@ -11,12 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     concurrency: deploy-group
     steps:
-      - uses: appleboy/ssh-action@v1
-        with:
-          host: ssh.pythonanywhere.com
-          username: npodlozhniy
-          key: ${{ secrets.PYTHONANYWHERE_SSH_KEY }}
-          script: |
-            cd ~/portugal-taxes
-            git pull
-            touch /var/www/npodlozhniy_pythonanywhere_com_wsgi.py
+      - name: Pull latest code
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \
+            https://npodlozhniy.pythonanywhere.com/deploy
+
+      - name: Reload web app
+        run: |
+          curl -sf -X POST \
+            -H "Authorization: Token ${{ secrets.PYTHONANYWHERE_API_TOKEN }}" \
+            https://www.pythonanywhere.com/api/v0/user/npodlozhniy/webapps/npodlozhniy.pythonanywhere.com/reload/

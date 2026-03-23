@@ -116,6 +116,33 @@ Current coverage: **91%** (model 99%, app routes 90%).
 > To deploy updates: `git pull` in the Bash console, then Reload.
 > Free accounts require a once-per-3-months renewal (one-click from the dashboard).
 
+#### CI/CD auto-deploy (optional)
+
+Push to `master` → GitHub Actions pulls the latest code and reloads PythonAnywhere automatically.
+
+**How it works:** The app exposes a `POST /deploy` endpoint that runs `git pull`. GitHub Actions calls it, then hits the PythonAnywhere API to reload the web app. No SSH required — works on the free Beginner plan.
+
+> **Note:** PythonAnywhere free tier does not allow inbound SSH from external hosts, so SSH-based deploy (e.g. `appleboy/ssh-action`) will fail with exit code 254. The webhook approach below is the correct alternative.
+
+**One-time setup:**
+
+1. Generate a random deploy token:
+   ```bash
+   python -c "import secrets; print(secrets.token_hex(32))"
+   ```
+2. Add it to your PythonAnywhere **WSGI file** (Web tab → WSGI file link), before the `from app import` line:
+   ```python
+   import os
+   os.environ['DEPLOY_TOKEN'] = 'your-token-here'
+   os.environ['SECRET_KEY'] = 'your-secret-key-here'
+   ```
+3. Get your PythonAnywhere API token: **Account** tab → **API token** → Create.
+4. Add two secrets to your GitHub repo (**Settings → Secrets and variables → Actions**):
+   - `DEPLOY_TOKEN` — same token from step 1
+   - `PYTHONANYWHERE_API_TOKEN` — token from step 3
+
+After pushing to `master`, the **PythonAnywhere** badge will turn green.
+
 ### Fly.io
 
 ```bash

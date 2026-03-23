@@ -7,6 +7,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 import os
 import datetime
+import subprocess
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'devsecret')
@@ -363,6 +364,19 @@ def index():
   recent_calcs = Calculation.query.filter_by(user_id=current_user.id).order_by(Calculation.timestamp.desc()).limit(5).all()
   current_year = datetime.datetime.now().year
   return render_template('index.html', result=result, error=error, profile=profile, recent_calcs=recent_calcs, current_year=current_year)
+
+@app.route('/deploy', methods=['POST'])
+def deploy():
+  token = os.environ.get('DEPLOY_TOKEN', '')
+  auth = request.headers.get('Authorization', '')
+  if not token or auth != f'Bearer {token}':
+    return {'error': 'unauthorized'}, 401
+  result = subprocess.run(
+    ['git', 'pull'],
+    cwd=os.path.dirname(os.path.abspath(__file__)),
+    capture_output=True, text=True
+  )
+  return {'stdout': result.stdout, 'stderr': result.stderr, 'returncode': result.returncode}
 
 if __name__ == '__main__':
   app.run(debug=os.environ.get('FLASK_DEBUG', 'false').lower() == 'true', host='0.0.0.0')
