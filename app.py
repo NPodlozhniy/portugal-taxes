@@ -204,20 +204,21 @@ def index():
             })
           except Exception:
             pass
-        alt_kwargs = kwargs.copy()
-        alt_kwargs['status'] = 'joint' if status == 'single' else 'single'
-        try:
-          alt_inc = Income(**alt_kwargs)
-          alt_total = alt_inc.income_tax + alt_inc.social_security_tax + alt_inc.solidarity_tax
-          gain = (it + sst + st) - alt_total
-          alternatives.append({
-            'desc': f"{'Joint' if status == 'single' else 'Single'} Declaration",
-            'total_tax': alt_total,
-            'monthly_net': (i - alt_total)/12,
-            'gain': gain
-          })
-        except Exception:
-          pass
+        if residence not in ['nhr', 'nr']:
+          alt_kwargs = kwargs.copy()
+          alt_kwargs['status'] = 'joint' if status == 'single' else 'single'
+          try:
+            alt_inc = Income(**alt_kwargs)
+            alt_total = alt_inc.income_tax + alt_inc.social_security_tax + alt_inc.solidarity_tax
+            gain = (it + sst + st) - alt_total
+            alternatives.append({
+              'desc': f"{'Joint' if status == 'single' else 'Single'} Declaration",
+              'total_tax': alt_total,
+              'monthly_net': (i - alt_total)/12,
+              'gain': gain
+            })
+          except Exception:
+            pass
         if kids:
           alt_kwargs = kwargs.copy()
           alt_kwargs['kids'] = ''
@@ -323,21 +324,22 @@ def index():
           })
         except Exception:
           pass
-      # Try joint/single
-      alt_kwargs = kwargs.copy()
-      alt_kwargs['status'] = 'joint' if status == 'single' else 'single'
-      try:
-        alt_inc = Income(**alt_kwargs)
-        alt_total = alt_inc.income_tax + alt_inc.social_security_tax + alt_inc.solidarity_tax
-        gain = (it + sst + st) - alt_total
-        alternatives.append({
-          'desc': f"{'Joint' if status == 'single' else 'Single'} Declaration",
-          'total_tax': alt_total,
-          'monthly_net': (i - alt_total)/12,
-          'gain': gain
-        })
-      except Exception:
-        pass
+      # Try joint/single (only relevant for residents with progressive tax brackets)
+      if residence not in ['nhr', 'nr']:
+        alt_kwargs = kwargs.copy()
+        alt_kwargs['status'] = 'joint' if status == 'single' else 'single'
+        try:
+          alt_inc = Income(**alt_kwargs)
+          alt_total = alt_inc.income_tax + alt_inc.social_security_tax + alt_inc.solidarity_tax
+          gain = (it + sst + st) - alt_total
+          alternatives.append({
+            'desc': f"{'Joint' if status == 'single' else 'Single'} Declaration",
+            'total_tax': alt_total,
+            'monthly_net': (i - alt_total)/12,
+            'gain': gain
+          })
+        except Exception:
+          pass
       # Try with/without kids
       if kids:
         alt_kwargs = kwargs.copy()
