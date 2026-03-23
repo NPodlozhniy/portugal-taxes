@@ -1,0 +1,22 @@
+name: PythonAnywhere Deploy
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    name: Deploy to PythonAnywhere
+    runs-on: ubuntu-latest
+    concurrency: deploy-group
+    steps:
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ssh.pythonanywhere.com
+          username: npodlozhniy
+          key: ${{ secrets.PYTHONANYWHERE_SSH_KEY }}
+          script: |
+            cd ~/portugal-taxes
+            git pull
+            touch /var/www/npodlozhniy_pythonanywhere_com_wsgi.py

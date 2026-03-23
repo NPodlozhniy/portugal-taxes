@@ -5,6 +5,8 @@
 [![Python](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Tests](https://github.com/NPodlozhniy/portugal-taxes/actions/workflows/ci.yml/badge.svg)](https://github.com/NPodlozhniy/portugal-taxes/actions/workflows/ci.yml)
+[![PythonAnywhere](https://github.com/NPodlozhniy/portugal-taxes/actions/workflows/pa-deploy.yml/badge.svg)](https://github.com/NPodlozhniy/portugal-taxes/actions/workflows/pa-deploy.yml)
+[![Fly.io](https://github.com/NPodlozhniy/portugal-taxes/actions/workflows/fly-deploy.yml/badge.svg)](https://github.com/NPodlozhniy/portugal-taxes/actions/workflows/fly-deploy.yml)
 
 ---
 
@@ -48,6 +50,7 @@ python main.py --help
 
 ---
 
+
 ## Docker
 
 ```bash
@@ -84,16 +87,34 @@ Current coverage: **91%** (model 99%, app routes 90%).
 
 ## Deployment
 
-### Render (recommended — free tier)
+### PythonAnywhere (recommended — free tier, persistent SQLite)
 
-1. Push to GitHub.
-2. Go to [render.com](https://render.com) → **New → Web Service** → connect your repo.
-3. Set:
-   - **Runtime**: Docker
-   - **Environment variable**: `SECRET_KEY` = a long random string
-4. Add a **Disk** (free tier: 1 GB) mounted at `/home/instance` so the SQLite database survives redeploys.
-   Update `SQLALCHEMY_DATABASE_URI` in `app.py` to `sqlite:////home/instance/taxes.db` **or** set it via env var.
-5. Click **Deploy**.
+1. Create a free [PythonAnywhere](https://www.pythonanywhere.com) account (Beginner plan).
+2. Open a **Bash console** and run:
+   ```bash
+   git clone https://github.com/NPodlozhniy/portugal-taxes.git
+   cd portugal-taxes
+   python3.11 -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
+   python -c "from app import db, app; app.app_context().push(); db.create_all()"
+   ```
+3. Go to **Web** tab → **Add a new web app** → **Manual configuration** → **Python 3.11**.
+4. Set:
+   - **Source code**: `/home/<username>/portugal-taxes`
+   - **Virtualenv**: `/home/<username>/portugal-taxes/.venv`
+5. Edit the **WSGI file** — replace its contents with:
+   ```python
+   import sys
+   sys.path.insert(0, '/home/<username>/portugal-taxes')
+   from app import app as application
+   ```
+6. Add **environment variable** `SECRET_KEY` (a long random string) in the Web tab.
+7. Click **Reload** — your app is live at `<username>.pythonanywhere.com`.
+
+> The SQLite database lives at `~/portugal-taxes/taxes.db` and persists across deploys.
+> To deploy updates: `git pull` in the Bash console, then Reload.
+> Free accounts require a once-per-3-months renewal (one-click from the dashboard).
 
 ### Fly.io
 
@@ -109,7 +130,7 @@ Add to `fly.toml`:
 ```toml
 [mounts]
   source = "portugal_data"
-  destination = "/home/instance"
+  destination = "/data"
 ```
 
 ### VPS / any Docker host
