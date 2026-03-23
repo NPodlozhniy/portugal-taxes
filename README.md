@@ -143,6 +143,19 @@ Push to `master` → GitHub Actions pulls the latest code and reloads PythonAnyw
 
 After pushing to `master`, the **PythonAnywhere** badge will turn green.
 
+**SSH access for manual operations (optional):**
+
+PythonAnywhere free tier blocks inbound SSH from external hosts (so SSH-based CI/CD won't work), but you can set up key-based auth for your own terminal access:
+
+```bash
+# Run in PythonAnywhere Bash console:
+mkdir -p ~/.ssh && chmod 700 ~/.ssh
+echo "your-public-key-contents" >> ~/.ssh/authorized_keys
+chmod 600 ~/.ssh/authorized_keys
+```
+
+Then from your local machine: `ssh <username>@ssh.pythonanywhere.com`
+
 ### Fly.io
 
 ```bash

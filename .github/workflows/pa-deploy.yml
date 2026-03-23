@@ -1,4 +1,4 @@
-name: PythonAnywhere Deploy
+name: PythonAnywhere
 
 on:
   push:
