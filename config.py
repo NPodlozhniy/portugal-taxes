@@ -1,11 +1,14 @@
 import json
+import os
+from typing import Any
 
+_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Tax brackets are always the same between the regions
 # However progressive rates are different -> store them separately
 
 
-def load_tax_data_from_json(file_path: str) -> dict:
+def load_tax_data_from_json(file_path: str) -> Any | None:
     """
     Loads tax data from a JSON file.
     
@@ -27,7 +30,7 @@ def load_tax_data_from_json(file_path: str) -> dict:
         return None
 
 
-def get_tax_data(year: int, region: str) -> dict:
+def get_tax_data(year: int, region: str) -> Any | None:
     """
     Retrieves the tax data (brackets, rates, and IAS) for a given year and region.
 
@@ -40,7 +43,7 @@ def get_tax_data(year: int, region: str) -> dict:
               Returns None if the data is not found.
     """
     year = str(year)
-    tax_data = load_tax_data_from_json("rates.json")
+    tax_data = load_tax_data_from_json(os.path.join(_DIR, "rates.json"))
     if tax_data and year in tax_data and region in tax_data[year]:
         return tax_data[year][region]
     else:
