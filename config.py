@@ -30,6 +30,19 @@ def load_tax_data_from_json(file_path: str) -> Any | None:
         return None
 
 
+def get_allowance_limits(year: int) -> dict:
+    """
+    Returns the daily IRS/SS-exempt limits for meal and telework allowances for the given year.
+    Both IRS and Social Security share the same thresholds.
+    """
+    _FALLBACK = {"meal_cash_daily": 6.00, "meal_card_daily": 10.20, "telework_daily": 1.00}
+    tax_data = load_tax_data_from_json(os.path.join(_DIR, "rates.json"))
+    year_str = str(year)
+    if tax_data and year_str in tax_data and "allowances" in tax_data[year_str]:
+        return tax_data[year_str]["allowances"]
+    return _FALLBACK
+
+
 def get_tax_data(year: int, region: str) -> Any | None:
     """
     Retrieves the tax data (brackets, rates, and IAS) for a given year and region.

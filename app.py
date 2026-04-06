@@ -8,6 +8,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import datetime
 import subprocess
+import json as _json_mod
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'devsecret')
@@ -138,10 +139,11 @@ def index():
   from model import Income
   result = None
   error = None
+  just_calculated = False
   # Use profile defaults
   profile = current_user
-  # Load previous calculation if requested
-  load_id = request.args.get('load')
+  # Load previous calculation if requested (GET only — POST ignores ?load= in URL)
+  load_id = request.args.get('load') if request.method == 'GET' else None
   if load_id:
     calc = Calculation.query.filter_by(id=load_id, user_id=current_user.id).first()
     if calc:
@@ -156,6 +158,21 @@ def index():
       kids = calc.kids
       opened_at = calc.activity_opened if category == 'B' else None
       try:
+        from config import get_allowance_limits
+        # Retrieve stored allowances from saved result JSON
+        saved = {}
+        if calc.result_json:
+          try:
+            saved = _json_mod.loads(calc.result_json)
+          except Exception:
+            pass
+        # Restore daily meal and monthly telework from saved JSON
+        meal_daily = saved.get('meal_allowance_daily', 0) or 0
+        telework_monthly = saved.get('telework_allowance_monthly', 0) or 0
+        meal_type = saved.get('meal_type', 'card')
+        meal_annual = meal_daily * 264
+        tel_annual = telework_monthly * 12
+
         kwargs = {
           'year': year,
           'income': income,
@@ -165,14 +182,22 @@ def index():
           'expenses': expenses,
           'status': status,
           'kids': kids,
+          'telework_allowance': tel_annual,
+          'meal_allowance': meal_annual,
+          'meal_type': meal_type,
         }
         inc = Income(**kwargs)
         i = inc.income
         it = inc.income_tax
         sst = inc.social_security_tax
         st = inc.solidarity_tax
-        # Remove 'Portuguese' from __repr__ output
         desc = str(inc).replace('Portuguese ', '')
+
+        limits = get_allowance_limits(year)
+        tel_exempt = round(min(tel_annual, 264 * limits['telework_daily']), 2)
+        meal_cap = limits['meal_card_daily'] if meal_type == 'card' else limits['meal_cash_daily']
+        meal_exempt = round(min(meal_annual, 264 * meal_cap), 2)
+        net = i + tel_annual + meal_annual - (it + sst + st)
         result = {
           'desc': desc,
           'wages': i,
@@ -181,11 +206,18 @@ def index():
           'solidarity_tax': st,
           'total_tax': it + sst + st,
           'effective_rate': (it + sst + st)/i if i else 0,
-          'monthly_net': (i - (it + sst + st))/12,
+          'monthly_net': net / 12,
           'status': status,
           'kids': kids,
           'opened_at': opened_at,
-          'expenses': expenses
+          'expenses': expenses,
+          'meal_allowance': meal_annual,
+          'meal_allowance_exempt': meal_exempt,
+          'meal_allowance_daily': meal_daily,
+          'telework_allowance': tel_annual,
+          'telework_exempt': tel_exempt,
+          'telework_allowance_monthly': telework_monthly,
+          'meal_type': meal_type,
         }
         # Alternative scenarios (reuse logic from POST)
         alternatives = []
@@ -256,7 +288,20 @@ def index():
       expenses_str = request.form.get('expenses', '').strip().replace(',', '') if category == 'B' else '0'
       expenses = float(expenses_str) if expenses_str else 0
       status = request.form.get('status', 'single')
+      # Category A allowances: meal is daily input, telework is monthly input
+      meal_daily = 0.0
+      telework_monthly = 0.0
+      meal_type = 'card'
+      if category == 'A':
+        meal_d = request.form.get('meal_allowance', '').strip().replace(',', '')
+        telework_m = request.form.get('telework_allowance', '').strip().replace(',', '')
+        meal_daily = float(meal_d) if meal_d else 0.0
+        telework_monthly = float(telework_m) if telework_m else 0.0
+        meal_type = request.form.get('meal_type', 'card')
 
+      from config import get_allowance_limits
+      meal_annual = meal_daily * 264        # 264 working days/year
+      tel_annual = telework_monthly * 12
       kwargs = {
         'year': year,
         'income': income,
@@ -266,14 +311,22 @@ def index():
         'expenses': expenses,
         'status': status,
         'kids': kids,
+        'telework_allowance': tel_annual,
+        'meal_allowance': meal_annual,
+        'meal_type': meal_type,
       }
       inc = Income(**kwargs)
       i = inc.income
       it = inc.income_tax
       sst = inc.social_security_tax
       st = inc.solidarity_tax
-      # Use __repr__ output for desc, remove 'Portuguese'
       desc = str(inc).replace('Portuguese ', '')
+
+      limits = get_allowance_limits(year)
+      tel_exempt = round(min(tel_annual, 264 * limits['telework_daily']), 2)
+      meal_cap = limits['meal_card_daily'] if meal_type == 'card' else limits['meal_cash_daily']
+      meal_exempt = round(min(meal_annual, 264 * meal_cap), 2)
+      net = i + tel_annual + meal_annual - (it + sst + st)
       result = {
         'desc': desc,
         'wages': i,
@@ -282,14 +335,20 @@ def index():
         'solidarity_tax': st,
         'total_tax': it + sst + st,
         'effective_rate': (it + sst + st)/i if i else 0,
-        'monthly_net': (i - (it + sst + st))/12,
+        'monthly_net': net / 12,
         'status': status,
         'kids': kids,
         'opened_at': opened_at,
-        'expenses': expenses
+        'expenses': expenses,
+        'meal_allowance': meal_annual,
+        'meal_allowance_exempt': meal_exempt,
+        'meal_allowance_daily': meal_daily,
+        'telework_allowance': tel_annual,
+        'telework_exempt': tel_exempt,
+        'telework_allowance_monthly': telework_monthly,
+        'meal_type': meal_type,
       }
-      # Save calculation
-      import json
+      just_calculated = True
       calc = Calculation(
         user_id=current_user.id,
         year=year,
@@ -301,7 +360,7 @@ def index():
         activity_opened=opened_at,
         expenses=expenses,
         status=status,
-        result_json=json.dumps(result)
+        result_json=_json_mod.dumps(result)
       )
       db.session.add(calc)
       db.session.commit()
@@ -361,9 +420,11 @@ def index():
     except Exception as e:
       error = str(e)
   # Show recent calculations
+  from config import get_allowance_limits
   recent_calcs = Calculation.query.filter_by(user_id=current_user.id).order_by(Calculation.timestamp.desc()).limit(5).all()
   current_year = datetime.datetime.now().year
-  return render_template('index.html', result=result, error=error, profile=profile, recent_calcs=recent_calcs, current_year=current_year)
+  allowance_limits_json = _json_mod.dumps({str(y): get_allowance_limits(y) for y in [2023, 2024, 2025, 2026]})
+  return render_template('index.html', result=result, error=error, profile=profile, recent_calcs=recent_calcs, current_year=current_year, just_calculated=just_calculated, allowance_limits_json=allowance_limits_json)
 
 @app.route('/deploy', methods=['POST'])
 def deploy():

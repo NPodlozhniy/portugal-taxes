@@ -2,7 +2,7 @@ from datetime import datetime
 
 import numpy as np
 
-from config import get_tax_data
+from config import get_tax_data, get_allowance_limits
 
 
 class Income():
@@ -35,10 +35,14 @@ class Income():
         # add joint declaration & children
         status: str = 'single',
         kids: str = None,
+        # Category A tax-free allowances (annual amounts received)
+        telework_allowance: float = 0,
+        meal_allowance: float = 0,
+        meal_type: str = 'card',
     ) -> None:
-        if year < 2023 or year > 2025:
+        if year < 2023 or year > 2026:
             raise ValueError(
-                "Only years from 2023 to 2025 are currently supported"
+                "Only years from 2023 to 2026 are currently supported"
             )
         else:
             self.year = year
@@ -62,6 +66,11 @@ class Income():
             )
         else:
             self.region = region
+
+        # Category A allowances — caller passes annual amounts
+        self._telework_annual = float(telework_allowance) if telework_allowance else 0.0
+        self._meal_annual = float(meal_allowance) if meal_allowance else 0.0
+        self._meal_type = meal_type if meal_type in ('cash', 'card') else 'card'
 
         if not opened_at:
             self.category = 'A' # regular employee
@@ -99,6 +108,21 @@ class Income():
             )
 
     @property
+    def allowance_excess(self) -> float:
+        """Annual allowance received above the IRS/SS-free daily limit (Category A only).
+        Both IRS and Social Security share the same daily exemption thresholds.
+        Assumes 264 working days per year (22 days × 12 months).
+        """
+        if self.category != 'A':
+            return 0.0
+        limits = get_allowance_limits(self.year)
+        working_days = 264
+        tel_excess = max(0.0, self._telework_annual - working_days * limits['telework_daily'])
+        meal_cap = limits['meal_card_daily'] if self._meal_type == 'card' else limits['meal_cash_daily']
+        meal_excess = max(0.0, self._meal_annual - working_days * meal_cap)
+        return round(tel_excess + meal_excess, 2)
+
+    @property
     def specific_deduction(self) -> float:
         tax_data = get_tax_data(self.year, self.region)
         if self.year == 2023:
@@ -124,7 +148,7 @@ class Income():
             )
             return self.income * 0.75 * (1 - extra_discount) + not_incurred_expenses
         else:
-            return max(0, self.income - max(self.specific_deduction, self.social_security_tax))
+            return max(0, self.income + self.allowance_excess - max(self.specific_deduction, self.social_security_tax))
 
     @property
     def family_quotient(self) -> float:
@@ -196,7 +220,7 @@ class Income():
             invoiced_months = min(12, max(0, months_since_opened - 12 - months_to_first_declaration))
             return round(self.income * (invoiced_months / 12) * 0.1125 + months_to_first_declaration * 20, 2)
         else:
-            return round(self.income * 0.11, 2)
+            return round((self.income + self.allowance_excess) * 0.11, 2)
 
     @staticmethod
     def progressive_taxation(income: float, thresholds: list, rates: list) -> float:

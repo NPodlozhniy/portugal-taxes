@@ -25,7 +25,7 @@
         <h5 class="mb-0"><i class="bi bi-calculator me-2"></i>Calculate Taxes</h5>
       </div>
       <div class="card-body p-4">
-        <form method="post">
+        <form method="post" action="/">
           <div class="mb-3">
             <label for="income" class="form-label fw-semibold">Gross Annual Income (€)</label>
             <input type="text" inputmode="decimal" class="form-control form-control-lg"
@@ -35,7 +35,7 @@
           <div class="mb-3">
             <label for="year" class="form-label fw-semibold">Fiscal Year</label>
             <select class="form-select" id="year" name="year">
-              {% for y in [2023, 2024, 2025] %}
+              {% for y in [2023, 2024, 2025, 2026] %}
               <option value="{{ y }}" {% if request.form.get('year', '2025') == y|string %}selected{% endif %}>{{ y }}</option>
               {% endfor %}
             </select>
@@ -46,6 +46,28 @@
             <input type="text" inputmode="decimal" class="form-control"
               id="expenses" name="expenses"
               value="{{ request.form.expenses or '' }}" placeholder="1,200">
+          </div>
+          {% endif %}
+          {% if profile.category == 'A' %}
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Meal Allowance <span class="text-muted fw-normal">(€/day received)</span></label>
+            <div class="input-group">
+              <input type="text" inputmode="decimal" class="form-control"
+                id="meal_allowance" name="meal_allowance"
+                value="{{ request.form.meal_allowance or '' }}" placeholder="9.60">
+              <select class="form-select" id="meal_type" name="meal_type" style="max-width:90px">
+                <option value="card" {% if request.form.get('meal_type', 'card') == 'card' %}selected{% endif %}>Card</option>
+                <option value="cash" {% if request.form.get('meal_type') == 'cash' %}selected{% endif %}>Cash</option>
+              </select>
+            </div>
+            <div id="meal_hint" class="form-text"></div>
+          </div>
+          <div class="mb-3">
+            <label for="telework_allowance" class="form-label fw-semibold">Telework Allowance <span class="text-muted fw-normal">(€/month received)</span></label>
+            <input type="text" inputmode="decimal" class="form-control"
+              id="telework_allowance" name="telework_allowance"
+              value="{{ request.form.telework_allowance or '' }}" placeholder="0">
+            <div id="telework_hint" class="form-text"></div>
           </div>
           {% endif %}
           {% if profile.residence in ['nhr', 'nr'] %}
@@ -83,12 +105,13 @@
 
     {% if result %}
     {# Summary tiles #}
+    {% set annual_net = result.wages - result.total_tax + (result.meal_allowance or 0) + (result.telework_allowance or 0) %}
     <div class="row g-3 mb-4">
       <div class="col-6 col-lg-3">
         <div class="card text-center border-0 shadow-sm h-100">
           <div class="card-body py-3">
             <div class="text-muted small mb-1">Annual Net</div>
-            <div class="fw-bold fs-5 text-success">{{ '{:,.0f}'.format(result.wages - result.total_tax) }}€</div>
+            <div class="fw-bold fs-5 text-success">{{ '{:,.0f}'.format(annual_net) }}€</div>
           </div>
         </div>
       </div>
@@ -163,6 +186,32 @@
               <td class="fw-bold">Total Tax</td>
               <td class="text-end fw-bold text-danger">{{ '{:,.2f}'.format(result.total_tax) }} €</td>
             </tr>
+            {% if result.meal_allowance %}
+            {% set meal_taxable = result.meal_allowance - (result.meal_allowance_exempt or result.meal_allowance) %}
+            <tr>
+              <td class="text-muted">
+                Meal Allowance ({{ result.meal_type|default('card') }})
+                <span class="badge bg-success-subtle text-success ms-1 small">tax-free: {{ '{:,.2f}'.format(result.meal_allowance_exempt or result.meal_allowance) }} €</span>
+                {% if meal_taxable > 0.01 %}
+                <br><span class="text-warning-emphasis small">{{ '{:,.2f}'.format(meal_taxable) }} € added to taxable base</span>
+                {% endif %}
+              </td>
+              <td class="text-end fw-semibold text-success">+{{ '{:,.2f}'.format(result.meal_allowance) }} €</td>
+            </tr>
+            {% endif %}
+            {% if result.telework_allowance %}
+            {% set tel_taxable = result.telework_allowance - (result.telework_exempt or result.telework_allowance) %}
+            <tr>
+              <td class="text-muted">
+                Telework Allowance
+                <span class="badge bg-success-subtle text-success ms-1 small">tax-free: {{ '{:,.2f}'.format(result.telework_exempt or result.telework_allowance) }} €</span>
+                {% if tel_taxable > 0.01 %}
+                <br><span class="text-warning-emphasis small">{{ '{:,.2f}'.format(tel_taxable) }} € added to taxable base (IRS + SS)</span>
+                {% endif %}
+              </td>
+              <td class="text-end fw-semibold text-success">+{{ '{:,.2f}'.format(result.telework_allowance) }} €</td>
+            </tr>
+            {% endif %}
             <tr style="background:#f0faf4">
               <td class="fw-bold">Monthly Net Salary</td>
               <td class="text-end fw-bold text-success">{{ '{:,.2f}'.format(result.monthly_net) }} €</td>
@@ -244,6 +293,18 @@
   </div>
 </div>
 
+{# Toast notification after calculation #}
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index:1100">
+  <div id="calcToast" class="toast align-items-center text-bg-success border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body fw-semibold">
+        <i class="bi bi-check-circle-fill me-2"></i>Calculation complete!
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+
 <script>
 function fmtNumber(el) {
   let raw = el.value.replace(/,/g, '');
@@ -255,6 +316,38 @@ document.getElementById('income').addEventListener('input', function() { fmtNumb
 {% if profile.category == 'B' %}
 var expEl = document.getElementById('expenses');
 if (expEl) expEl.addEventListener('input', function() { fmtNumber(this); });
+{% endif %}
+{% if profile.category == 'A' %}
+['meal_allowance', 'telework_allowance'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('input', function() { fmtNumber(this); });
+});
+
+// Dynamic allowance hints based on selected year
+var ALLOWANCE_LIMITS = {{ allowance_limits_json|safe }};
+function updateAllowanceHints(year) {
+  var l = ALLOWANCE_LIMITS[year];
+  if (!l) return;
+  var mealHint = document.getElementById('meal_hint');
+  var telHint  = document.getElementById('telework_hint');
+  if (mealHint) mealHint.textContent =
+    'Exempt up to \u20ac' + l.meal_card_daily.toFixed(2) + '/day (card) or \u20ac' + l.meal_cash_daily.toFixed(2) + '/day (cash). Excess is taxable.';
+  if (telHint) telHint.textContent =
+    'Exempt up to \u20ac' + l.telework_daily + '/day \u00d7 22\u00a0days \u2248 \u20ac' +
+    (l.telework_daily * 22).toFixed(0) + '/month. Excess is taxable (IRS + SS).';
+}
+var yearSel = document.getElementById('year');
+if (yearSel) {
+  yearSel.addEventListener('change', function() { updateAllowanceHints(this.value); });
+  updateAllowanceHints(yearSel.value);
+}
+{% endif %}
+{% if just_calculated %}
+document.addEventListener('DOMContentLoaded', function() {
+  var toastEl = document.getElementById('calcToast');
+  var toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+  toast.show();
+});
 {% endif %}
 </script>
 {% endblock %}
